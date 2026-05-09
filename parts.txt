@@ -1,0 +1,7 @@
+P01, oil, 35.0
+P02, filter, 25.0
+P03, brake, 120.0
+P04, battery, 180.0
+P05, radiator, 420.0
+P06, motor, 280.0
+P07, tyre, 150.0

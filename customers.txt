@@ -1,0 +1,7 @@
+C02, Aaron, na, na
+M07, Bella, 0.10, na
+C14, Dylan, na, na
+P18, Hannah, 0.10, 2
+M25, Isaac, 0.10, na
+P31, Jasmine, 0.12, 4
+C38, Kevin, na, na

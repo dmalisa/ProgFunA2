@@ -1,0 +1,6 @@
+S01, inspection, 40.0, no, 1.0, no
+S02, diagnostic, 40.0, no, 1.0, no
+S03, maintenance, 40.0, no, 2.0, yes
+S04, repair, 40.0, yes, na, yes
+S05, cleaning, 40.0, yes, na, no
+S06, polishing, 40.0, no, 2.5, no
