@@ -3,7 +3,6 @@
 
 class Customer:
     def __init__(self, ID, name):
-        # initilialize then here
         self.ID = ID
         self.name = name
         
@@ -34,6 +33,16 @@ class PremiumMember:
 class Service:
     def __init__(self, ID, name, cost_per_hour, require_user_input_hour,
                  service_hour, require_part):
+        """
+        Args:
+            ID (_type_): _description_ The ID for the respective service
+            name (_type_): _description_ The name of the service
+            cost_per_hour (_type_): _description_ The cost of the service
+            require_user_input_hour (_type_): _description_  The hours the users specifies for the service
+            service_hour (_type_): _description_ The hours specified for some of the services
+            require_part (_type_): _description_ The prat required for that specific service
+        """
+        
         self.ID = ID
         self.name = name
         self.cost_per_hour = cost_per_hour
@@ -42,41 +51,152 @@ class Service:
         self.require_part = require_part
         
     def display_info(self):
-        pass
+        print("ID: " + self.ID + ", name: " + self.name + ", cost per hour: " + self.cost_per_hour,
+              ", user input hour: " + self.require_user_input_hour + ", service hour: " + self.service_hour
+              + ", require part: " + self.require_part)
+        
     
 
 class Part:
-    def __init__(self, ID, name, discount_rate):
+    def __init__(self, ID, name, price):
+        """_summary_
+        This method is the constructor of the Part class
+        Args:
+            ID (_type_): _description_ ID of the part
+            name (_type_): _description_ The name of the part
+            price (_type_): _description_ The price of the part
+        """
         self.ID = ID
         self.name = name
-        self.discount_rate = discount_rate
+        self.price = price
     
     def display_info(self):
-        pass
+        print("ID: " + self.ID + ", name: " + self.name + ", price: " + self.price)
 
 class Records:
-    def __init__(self, existing_customers, existing_services, existing_parts):
-        self.existing_customers = existing_customers
-        self.existing_services = existing_services
-        self.existing_parts = existing_parts
+    def __init__(self):
+        self.existing_customers = []
+        self.existing_services = []
+        self.existing_parts = []
     
     def read_customers(self):
-        pass
+        """_summary_
+        """
+        file = open("parts.txt")
+        for line in file:
+            line = line.split(',')
+            ID = line[0].strip() 
+            name = line[1].strip()
+            discount_rate = line[2].strip()
+            service_credit = line[3].strip()
+
+            if ID[0] == "C":
+                cutomer = Customer(ID, name)
+                self.existing_parts.append(cutomer)
+            elif ID[0] == "M":
+                member = Member(ID, name, discount_rate)
+                self.existing_parts.append(member)
+            elif ID[0] == "P":
+                cutomer = Customer(ID, name, discount_rate, service_credit)
+                self.existing_parts.append(cutomer)
     
     def read_services(self):
-        pass
+        """_summary_
+        This method reads the services file and 
+        creates a service object from the service class and 
+        adds those services to the existing services list
+        """
+
+        file = open("services.txt")
+        for line in file:
+            line = line.split(',')
+            # ensuring each of the values in the line is stripped of extra characters
+            ID = line[0].strip() 
+            name = line[1].strip()
+            cost = line[2].strip()
+            input_hr = line[3].strip()
+            service_hour = line[4].strip()
+            require_part = line[5].strip()
+            
+            service = Service(ID, name, cost, input_hr, service_hour, require_part)
+            self.existing_services.append(service)
     
     def read_parts(self):
-        pass
+        """_summary_
+        reads in the list 
+        then with each line you create a part object 
+        then add this new part object into the list of parts
+        """
+        file = open("parts.txt")
+        for line in file:
+            line = line.split(',')
+            ID = line[0].strip() 
+            name = line[1].strip()
+            price = line[2].strip()
+            part = Part(ID, name, price)
+            self.existing_parts.append(part)
+
     
     def list_customers(self):
         pass
     
     def list_services(self):
-        pass
+        """_summary_
+             This Method calls the display info method of the service class
+        """
+        self.read_services()
+        for service in self.existing_services:
+            service.display_info()
     
     def list_parts(self):
-        pass
+        """_summary_
+        This Method calls the display info method of the part class
+        """
+        self.read_parts()
+        # Go through the existing parts list and print the information
+        for part in self.existing_parts:
+            part.display_info()
 
 class Main:
-    pass
+    
+    def __init__(self):
+        """_summary_
+        """
+    
+    def run(self):
+        """_summary_
+        """
+        
+        while True:
+        # run the menu at least once 
+                    
+            menu = """
+            1. Display existing customers
+            2. Display existing services
+            3. Display existing parts
+            4. Exit the program
+            """
+            
+            print("\nWelcome to the repair store") 
+            print('#'*50)
+            print(menu)
+            print(50*"#")
+            
+            user_choice = input("Please select an option from the menu above\n")
+
+            records = Records()
+            
+            if user_choice == "1":
+                print("o")
+            elif user_choice == "2":
+                records.list_services()
+            elif user_choice == "3":
+                records.list_parts()
+                
+            if user_choice == "4":
+                break
+        
+if __name__ == "__main__":
+    program = Main()
+    
+    program.run()
