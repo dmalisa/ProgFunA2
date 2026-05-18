@@ -192,7 +192,6 @@ class Main:
         """_summary_ This method contains the menu options and the 
         whole program is run from this method
         """
-        
         while True:
         # run the menu at least once 
                     
@@ -210,8 +209,10 @@ class Main:
             
             user_choice = input("Please select an option from the menu above\n")
 
+            # Instantiate the record class and create a record object
             records = Records()
             
+            # Calls the repective list methods for each option
             if user_choice == "1":
                 records.list_customers()
             elif user_choice == "2":
