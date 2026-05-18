@@ -2,24 +2,34 @@
 # Student_ID: s4225650
 
 class Customer:
+    """_summary_ This class defines the structure of a basic customer object
+    with a ID and a name
+    """
     def __init__(self, ID, name):
         self.ID = ID
         self.name = name
         
     def display_info(self):
-        pass
+        print("ID: " + self.ID + ", name: " + self.name)
+
     
 class Member:
+    """_summary_ This class defines the structure of a member object 
+    with the respective properties for a member
+    """
     def __init__(self, ID, name, discount_rate):
         self.ID = ID
         self.name = name
         self.discount_rate = discount_rate
         
     def display_info(self):
-        pass
+        print("ID: " + self.ID + ", name: " + self.name + ", discount rate: " + self.discount_rate)
         
 
 class PremiumMember:
+    """_summary_ This class defines the structure of a premium member object 
+    with the respective premium member attributes
+    """
     def __init__(self, ID, name, discount_rate, service_credit):
         self.ID = ID
         self.name = name
@@ -27,10 +37,15 @@ class PremiumMember:
         self.service_credit = service_credit
     
     def display_info(self):
-        pass
+        print("ID: " + self.ID + ", name: " + self.name + ", discount rate: " + self.discount_rate 
+              + ", service credit: " + self.service_credit)
+
     
 
 class Service:
+    """_summary_ This class defines the structure a service object with the respective 
+    attributes required to represent a service
+    """
     def __init__(self, ID, name, cost_per_hour, require_user_input_hour,
                  service_hour, require_part):
         """
@@ -58,6 +73,8 @@ class Service:
     
 
 class Part:
+    """_summary_ This class defines the structure of part objects
+    """
     def __init__(self, ID, name, price):
         """_summary_
         This method is the constructor of the Part class
@@ -75,30 +92,35 @@ class Part:
 
 class Records:
     def __init__(self):
+        # creating the list methods for the existing customers, services and parts
         self.existing_customers = []
         self.existing_services = []
         self.existing_parts = []
     
     def read_customers(self):
         """_summary_
+        This method reads the customer file and 
+        creates customer objects from the repective customer type classes
+        i.e. Customer, Member and Premium Member and 
+        adds those customers to the existing customers list
         """
-        file = open("parts.txt")
+        file = open("customers.txt")
         for line in file:
             line = line.split(',')
             ID = line[0].strip() 
             name = line[1].strip()
             discount_rate = line[2].strip()
             service_credit = line[3].strip()
-
+            # checking the beginging of the ID to know which class the customer belongs to 
             if ID[0] == "C":
                 cutomer = Customer(ID, name)
-                self.existing_parts.append(cutomer)
+                self.existing_customers.append(cutomer)
             elif ID[0] == "M":
                 member = Member(ID, name, discount_rate)
-                self.existing_parts.append(member)
+                self.existing_customers.append(member)
             elif ID[0] == "P":
-                cutomer = Customer(ID, name, discount_rate, service_credit)
-                self.existing_parts.append(cutomer)
+                premium_mem = PremiumMember(ID, name, discount_rate, service_credit)
+                self.existing_customers.append(premium_mem)
     
     def read_services(self):
         """_summary_
@@ -135,10 +157,14 @@ class Records:
             price = line[2].strip()
             part = Part(ID, name, price)
             self.existing_parts.append(part)
-
-    
+            
     def list_customers(self):
-        pass
+        """_summary_
+             This Method calls the display info method of the customers classes
+        """
+        self.read_customers()
+        for customer in self.existing_customers:
+            customer.display_info()
     
     def list_services(self):
         """_summary_
@@ -160,11 +186,11 @@ class Records:
 class Main:
     
     def __init__(self):
-        """_summary_
-        """
+       pass
     
     def run(self):
-        """_summary_
+        """_summary_ This method contains the menu options and the 
+        whole program is run from this method
         """
         
         while True:
@@ -187,7 +213,7 @@ class Main:
             records = Records()
             
             if user_choice == "1":
-                print("o")
+                records.list_customers()
             elif user_choice == "2":
                 records.list_services()
             elif user_choice == "3":
@@ -195,8 +221,8 @@ class Main:
                 
             if user_choice == "4":
                 break
+            
         
 if __name__ == "__main__":
     program = Main()
-    
     program.run()
