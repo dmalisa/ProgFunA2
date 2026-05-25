@@ -4,3 +4,7 @@ S03, maintenance, 40.0, no, 2.0, yes
 S04, repair, 40.0, yes, na, yes
 S05, cleaning, 40.0, yes, na, no
 S06, polishing, 40.0, no, 2.5, no
+SP07, BasicCarePackage, inspection, maintenance
+SP08, DiagnosticCarePackage, diagnostic, inspection
+SP09, RepairSupportPackage, maintenance, repair
+SP10, PremiumCarePackage, inspection, maintenance, polishing

@@ -1,13 +1,25 @@
 # Name: Denise Malisa
 # Student_ID: s4225650
 
+import os
+import sys
+
 class Customer:
     """_summary_ This class defines the structure of a basic customer object
     with a ID and a name
     """
+    # method is the constructor of the class customer
     def __init__(self, ID, name):
         self.ID = ID
         self.name = name
+        
+    # method to get customerID   
+    def get_ID(self):
+        return self.ID
+    
+    # method to get name   
+    def get_name(self):
+        return self.name
         
     def display_info(self):
         print("ID: " + self.ID + ", name: " + self.name)
@@ -17,11 +29,33 @@ class Member:
     """_summary_ This class defines the structure of a member object 
     with the respective properties for a member
     """
-    def __init__(self, ID, name, discount_rate):
+    discount_rate = 0.10
+    
+    # constructor of the member class
+    def __init__(self, ID, name):
         self.ID = ID
         self.name = name
-        self.discount_rate = discount_rate
         
+    # method to get memberID   
+    def get_ID(self):
+        return self.ID
+    
+    # method to get name   
+    def get_name(self):
+        return self.name
+    
+    # method to get discount rate   
+    def get_discount_rate(self):
+        return self.discount_rate
+    
+    # method to set a new discount rate
+    def set_discount_rate(self, new_discount):
+        self.discount_rate = new_discount
+        
+    # method returns the discount cost    
+    def get_discount(self, service_cost):
+        return self.discount_rate * service_cost
+            
     def display_info(self):
         print("ID: " + self.ID + ", name: " + self.name + ", discount rate: " + self.discount_rate)
         
@@ -30,22 +64,55 @@ class PremiumMember:
     """_summary_ This class defines the structure of a premium member object 
     with the respective premium member attributes
     """
-    def __init__(self, ID, name, discount_rate, service_credit):
+    # constructor for the premium member class
+    def __init__(self, ID, name, service_credit, discount_rate = 0.10):
         self.ID = ID
         self.name = name
         self.discount_rate = discount_rate
         self.service_credit = service_credit
+        
+    # method to get memberID   
+    def get_ID(self):
+        return self.ID
+    
+    # method to get name 
+    def get_name(self):
+        return self.name
+    
+    # method to get discount rate   
+    def get_discount_rate(self):
+        return self.discount_rate
+    
+    # method to get service credit   
+    def get_discount_rate(self):
+        return self.discount_rate
+    
+    # method to set a new discount rate
+    def set_discount_rate(self, new_discount):
+        self.discount_rate = new_discount
+        
+    # method returns the discount cost    
+    def get_discount(self, service_cost):
+        return self.discount_rate * service_cost   
+    
+    # method returns the credit   
+    def get_credit(self, total_cost):
+        self.service_credit = int(total_cost/100)
+        return self.service_credit
+    
+    # method updates the users credit   
+    def update_credit(self, new_credit):
+        self.service_credit += new_credit
     
     def display_info(self):
         print("ID: " + self.ID + ", name: " + self.name + ", discount rate: " + self.discount_rate 
               + ", service credit: " + self.service_credit)
 
-    
-
 class Service:
     """_summary_ This class defines the structure a service object with the respective 
     attributes required to represent a service
     """
+    # constructor for the service class
     def __init__(self, ID, name, cost_per_hour, require_user_input_hour,
                  service_hour, require_part):
         """
@@ -57,7 +124,6 @@ class Service:
             service_hour (_type_): _description_ The hours specified for some of the services
             require_part (_type_): _description_ The prat required for that specific service
         """
-        
         self.ID = ID
         self.name = name
         self.cost_per_hour = cost_per_hour
@@ -65,12 +131,18 @@ class Service:
         self.service_hour = service_hour
         self.require_part = require_part
         
+    # function to calculate the service cost         
+    def compute_service_cost(self):
+        return self.cost_per_hour * self.service_hour
+
+    # function to set the service hour for services that require user input hour    
+    def set_service_hour(self, user_service_hr):
+        self.service_hour = user_service_hr   
+                   
     def display_info(self):
         print("ID: " + self.ID + ", name: " + self.name + ", cost per hour: " + self.cost_per_hour,
               ", user input hour: " + self.require_user_input_hour + ", service hour: " + self.service_hour
-              + ", require part: " + self.require_part)
-        
-    
+              + ", require part: " + self.require_part)   
 
 class Part:
     """_summary_ This class defines the structure of part objects
@@ -158,6 +230,30 @@ class Records:
             part = Part(ID, name, price)
             self.existing_parts.append(part)
             
+    def _find(self, search_key, attribute_list):
+        key_type = "name" if search_key.isalpha() else "ID"
+        for  attribute in attribute_list:
+            if key_type  == "name" and attribute.name == search_key:
+                return attribute
+            elif key_type  == "ID" and attribute.ID == search_key:
+                return attribute
+        return None
+    
+    # def find_id(self, search_key):
+    #     return self._find(search_key, self.existing_customers)
+            
+    # this method will call the find method and pass in the search key and the customer list      
+    def find_customer(self, search_key):
+        return self._find(search_key, self.existing_customers)
+
+    # this method will call the find method and pass in the search key and the services list      
+    def find_service(self, search_key):
+        return self._find(search_key, self.existing_services)
+    
+    # this method will call the find method and pass in the search key and the parts list      
+    def find_part(self, search_key):
+        return self._find(search_key, self.existing_parts)   
+            
     def list_customers(self):
         """_summary_
              This Method calls the display info method of the customers classes
@@ -183,23 +279,114 @@ class Records:
         for part in self.existing_parts:
             part.display_info()
 
+
+class ServiceJob:
+    # method is the constructor of the class servicejob
+    def __init__(self, customer, service, part):
+        self.customer = customer
+        self.service = service
+        self.part = part
+        #self.service_hr = service_hr
+        
+    # method returns the o.g. cost, the total cost and the service credit for premium members  
+    def compute_cost(self):
+        original_cost = 0.0
+        discount = 0.0
+        total_cost = 0.0
+        service_credit = 1
+        
+        if isinstance(self.customer, Customer):
+            original_cost = 0
+        
+        
+        
+    # perform service method that collects user entries or creates serviceJobs 
+    def get_ID(self):
+        return self.ID
+    
+    def display_info(self):
+        print("ID: " + self.ID + ", name: " + self.name)
+    
+
 class Main:
     
     def __init__(self):
        pass
     
+    # this method will create a service job and also perfrom most of the 
+    # user input interactions with the system
+    def perform_service(records):
+        new_member = False
+       
+        customer_name = input("Hello there! Please enter the name of the customer:\n").lower()
+        while not customer_name.isalpha() :
+            print("Error detected, name entered contains non-alphabetic characters")  
+            customer_name = input("Please enter customer name with only alphabetic characters\n")
+            
+        customer = records.find_customer(customer_name)
+        if not customer:
+            new_member = True
+        
+        service_requested = input("Please enter the service requested by the customer:\n")
+        service = records.find_service(service_requested)
+        while not service: # uses the find service method to check that it is a valid service entered
+            print("Error detected, invalid service entered")  
+            service_requested = input("Please enter a valid service\n")
+        
+        if service.require_user_input_hour == "yes": # does the user have to entered the service hours
+            num_hours = input("please enter number of service hours required:\n") # get user service hours if the user has to input them
+        is_float = False
+        # perfomring input validation for the service hour entered
+        while not is_float:
+            try:
+                num_hours = float(num_hours)
+                if (num_hours % 0.5) != 0 or float(num_hours) < 1:
+                    print("Error detected, invalid service hours")  
+                    num_hours = input("Please enter valid service hours\n")
+                else:
+                    is_float = True 
+            except ValueError:
+                print("Error, numerical value required here")
+                num_hours = input("Please enter valid service hours\n")
+
+        service.set_service_hour(num_hours) # setting the entered and valid user hour
+        
+        part = None
+        if service.require_part() == "yes": # if user has to specify the required service part
+            part_required = input("Please enter the part required for this service:\n")
+            part = records.find_part(part_required)
+            while not part: # validating entered part
+                print("Error detected, invalid part entered")  
+                part_required = input("Please enter a valid part for your service\n")
+        
+        #Instantiate the servicejob class and create a servicejob object which is the cost of the service
+        service_job = ServiceJob(customer, service, part) 
+        
     def run(self):
         """_summary_ This method contains the menu options and the 
         whole program is run from this method
         """
+        present_files = []
+        required_files = ["customers.txt", "parts.txt", "services.txt"]
+        script_directory = os.path.dirname(os.path.abspath(__file__)) # Here I am making sure to look into the folder where the .py file is                
+        for item in os.listdir(script_directory):
+            if os.path.isfile(os.path.join(script_directory, item)): # check if it is a file i.e. .txt file
+                present_files.append(item) # adds the file to the present files list
+                    
+        for file in required_files:
+            if file not in present_files: 
+                print(f'{file} is missing, so the program has been terminated')  
+                sys.exit() # to terminate the program when a file is missing
+                
         while True:
         # run the menu at least once 
-                    
+         
             menu = """
             1. Display existing customers
             2. Display existing services
             3. Display existing parts
-            4. Exit the program
+            4. Perform a service
+            5. Exit the program
             """
             
             print("\nWelcome to the repair store") 
@@ -219,8 +406,10 @@ class Main:
                 records.list_services()
             elif user_choice == "3":
                 records.list_parts()
+            elif user_choice == "4":
+                self.perform_service(records)
                 
-            if user_choice == "4":
+            if user_choice == "5":
                 break
             
         
