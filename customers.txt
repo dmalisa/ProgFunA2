@@ -5,3 +5,7 @@ P18, Hannah, 0.10, 2
 M25, Isaac, 0.10, na
 P31, Jasmine, 0.12, 4
 C38, Kevin, na, na
+M39, zim, 0.1, na
+C40, tim, na, na
+M41, w, 0.1, na
+P42, r, 0.1, 0
