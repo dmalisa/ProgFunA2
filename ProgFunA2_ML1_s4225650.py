@@ -138,7 +138,7 @@ class Records:
         self.existing_customers = []
         self.existing_services = []
         self.existing_parts = []
-        
+                
         self.read_customers()  
         self.read_services()   
         self.read_parts() 
@@ -180,16 +180,23 @@ class Records:
         for line in file:
             line = line.split(',')
             # ensuring each of the values in the line is stripped of extra characters
-            ID = line[0].strip() 
-            name = line[1].strip()
-            cost = float(line[2].strip())
-            input_hr = line[3].strip()
-            if line[4].strip().lower() != "na": 
-                service_hour = float(line[4].strip())
-            require_part = line[5].strip()
+            ID = line[0].strip()
+            if ID[:2] == "SP": # then it is a service package
+                package_name = line[1]
+                services = line[2:]
+                # create a servicePacakge Obj
+                packages = ServicePackage(ID, package_name, services)
+                self.existing_services.append(packages)
+            else:
+                name = line[1].strip()
+                cost = float(line[2].strip())
+                input_hr = line[3].strip()
+                if line[4].strip().lower() != "na": 
+                    service_hour = float(line[4].strip())
+                require_part = line[5].strip()
             
-            service = Service(ID, name, cost, input_hr, service_hour, require_part)
-            self.existing_services.append(service)
+                service = Service(ID, name, cost, input_hr, service_hour, require_part)
+                self.existing_services.append(service)
     
     def read_parts(self):
         """_summary_
@@ -239,7 +246,7 @@ class Records:
              This Method calls the display info method of the service class
         """
         for service in self.existing_services:
-            service.display_info()
+            service.display_info() 
     
     def list_parts(self):
         """_summary_
@@ -248,7 +255,7 @@ class Records:
         # Go through the existing parts list and print the information
         for part in self.existing_parts:
             part.display_info()
-
+    
 class ServiceJob:
     # method is the constructor of the class servicejob
     def __init__(self, customer, service, part):
@@ -282,6 +289,16 @@ class ServiceJob:
              self.customer.update_credit(service_credit) # update their total credits
                 
         return original_cost, discount, total_cost, service_credit
+    
+class ServicePackage:  
+    # method is the constructor of the class servicejob
+    def __init__(self, ID, name, list_of_services):
+        self.ID = ID
+        self.name = name
+        self.list_of_services = list_of_services
+       
+    def display_info(self):    
+        print(f'ID: {self.ID}, name: {self.name}, {self.list_of_services}')     
     
 # functions takes in records and creates a new ID that is unquie for new customers
 def set_newID(records):
@@ -430,6 +447,8 @@ Args:
     print("Original cost:"+"\t"*5 + f"{original_cost:.2f}" +" (AUD)") 
     print("Discount:"+"\t"*5 + f"{discount:.2f}" + " (AUD)")
     print("Total cost:"+"\t"*5 + f"{total_cost:.2f}" + " (AUD)\n")  
+    
+  
     
 class Main:
     
