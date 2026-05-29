@@ -10,3 +10,6 @@ C40, tim, na, na
 M41, w, 0.1, na
 P42, r, 0.1, 0
 C43, emma, na, na
+C44, zara, na, na
+M45, john, 0.1, na
+P46, lisa, 0.1, 0

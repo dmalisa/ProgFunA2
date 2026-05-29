@@ -182,8 +182,8 @@ class Records:
             # ensuring each of the values in the line is stripped of extra characters
             ID = line[0].strip()
             if ID[:2] == "SP": # then it is a service package
-                package_name = line[1]
-                service_names = line[2:]
+                package_name = line[1].strip()
+                service_names = [service.strip() for service in line[2:]]
                 # create a servicePacakge Obj
                 packages = ServicePackage(ID, package_name, service_names)
                 self.existing_services.append(packages)
@@ -202,6 +202,7 @@ class Records:
             if isinstance(service, ServicePackage):
                 service_objects = [] # the list of the services in the service package as objects
                 for service_name in service.list_of_services:
+                    print(f'"looking for: " {service_name}')# remove me
                     service_obj = self.find_service(service_name)
                     service_objects.append(service_obj)
                 service.list_of_services = service_objects # so the list is of service objects
@@ -336,8 +337,11 @@ class ServicePackage:
         
         return original_cost, discount, total_cost, service_credit
         
-    def display_info(self):    
-        print(f'ID: {self.ID}, name: {self.name}, {", ".join(self.list_of_services.names)}')     
+    def display_info(self):  
+        list_names = []
+        for  service in self.list_of_services:
+            list_names.append(service.name)
+        print(f'ID: {self.ID}, name: {self.name}, {", ".join(list_names)}')     
     
 # functions takes in records and creates a new ID that is unquie for new customers
 def set_newID(records):
@@ -376,10 +380,9 @@ def perform_service(records):
                 service_obj.set_service_hour(num_hours)
             part = None
             if service_obj.require_part == "yes": # if user has to specify the required service part
+                print(f'part for the  {service_obj.name}')
                 part = check_valid_part(records)
-                required_parts.append(part)
-                
-        original_cost, discount, total_cost, service_credit = service.compute_cost(customer, required_parts)        
+            required_parts.append(part)  
     else:        
         if service.require_user_input_hour == "yes": # does the user have to enter the service hours
             num_hours = check_user_service_hr()
@@ -388,10 +391,6 @@ def perform_service(records):
         part = None
         if service.require_part == "yes": # if user has to specify the required service part
             part = check_valid_part(records)
-    
-        #Instantiate the servicejob class and create a servicejob object which is the cost of the service
-        service_job = ServiceJob(customer, service, part) 
-        original_cost, discount, total_cost, service_credit = service_job.compute_cost()
     
     # new member registration
     if new_member:
@@ -414,7 +413,14 @@ def perform_service(records):
                 file.write(f'\n{customer.get_ID()}, {customer_name}, {customer.get_discount_rate()}, na')
             else:
                 file.write(f'\n{customer.get_ID()}, {customer_name}, na, na')
-        file.close()        
+        file.close()   
+        
+    if isinstance(service, ServicePackage):
+        original_cost, discount, total_cost, service_credit = service.compute_cost(customer, required_parts)           
+    else:
+    #Instantiate the servicejob class and create a servicejob object which is the cost of the service
+        service_job = ServiceJob(customer, service, part) 
+        original_cost, discount, total_cost, service_credit = service_job.compute_cost()    
 
     part_cost = 0.0
     part_name = None
@@ -423,11 +429,12 @@ def perform_service(records):
         part_name = part.name
 
     # create the reciept
-    if isinstance(customer, PremiumMember):
+    if isinstance(service, ServicePackage):
+        new_premium = new_member and isinstance(customer, PremiumMember)
+        print_receipt_SV(service, required_parts, original_cost, discount, total_cost, service_credit, new_premium, customer)
+    elif isinstance(customer, PremiumMember):
         # call print method that has credit and registration cost
         print_receipt_P(service.name, service.service_hour, part_name, part_cost, original_cost, discount, total_cost, service_credit, new_member)
-    elif isinstance(service, ServicePackage):
-        print_receipt_SV(service, required_parts, original_cost, discount, total_cost, service_credit, new_member)
     else:
         # call regular print method
         print_receipt(service.name, service.service_hour, part_name, part_cost, original_cost, discount, total_cost)
@@ -478,7 +485,7 @@ Args:
     print("Total cost:"+"\t"*5 + f"{total_cost:.2f}" + " (AUD)\n")  
 
 # This method prints the receipt for the service packages
-def print_receipt_SV(service_package, required_parts, original_cost, discount, total_cost, service_credit, new_member):
+def print_receipt_SV(service_package, required_parts, original_cost, discount, total_cost, service_credit, new_member, customer):
     """_summary_
 Args:
     service_name (_type_): _description_ Name of the service the customer requested
@@ -491,15 +498,16 @@ Args:
     print("-"*60 + "\n" + "\t"*3 +"Receipt")
     print("-"*60)
     print(service_package.name)
-    for service in service_package.list_of_services:
-        for part in required_parts:
-            print(service.name + ":" + "\t"*5 + f"{service.service_hour}" + " x 40/hour")
-            if part:
-                print(part.name + ":" +"\t"*6 + f"{part.price:.2f}")
+    for x in range(len(service_package.list_of_services)):
+        service = service_package.list_of_services[x]
+        part = required_parts[x]
+        print(service.name + ":" + "\t"*5 + f"{service.service_hour}" + " x 40/hour")
+        if part:
+            print(part.name + ":" +"\t"*6 + f"{part.price:.2f}")
     print("-"*60)
     print("Original cost:"+"\t"*5 + f"{original_cost:.2f}" +" (AUD)") 
     print("Discount:"+"\t"*5 + f"{discount:.2f}" + " (AUD)")
-    if new_member:
+    if new_member and isinstance(customer, PremiumMember):
         print("Registration cost:"+"\t"*4 + f"{50:.2f}" + " (AUD)")
         total_cost += 50 # add the registration cost to the total
     print("Total cost:"+"\t"*5 + f"{total_cost:.2f}" + " (AUD)")  
