@@ -183,9 +183,9 @@ class Records:
             ID = line[0].strip()
             if ID[:2] == "SP": # then it is a service package
                 package_name = line[1]
-                services = line[2:]
+                service_names = line[2:]
                 # create a servicePacakge Obj
-                packages = ServicePackage(ID, package_name, services)
+                packages = ServicePackage(ID, package_name, service_names)
                 self.existing_services.append(packages)
             else:
                 name = line[1].strip()
@@ -197,6 +197,14 @@ class Records:
             
                 service = Service(ID, name, cost, input_hr, service_hour, require_part)
                 self.existing_services.append(service)
+        
+        for service in self.existing_services:
+            if isinstance(service, ServicePackage):
+                service_objects = [] # the list of the services in the service package as objects
+                for service_name in service.list_of_services:
+                    service_obj = self.find_service(service_name)
+                    service_objects.append(service_obj)
+                service.list_of_services = service_objects # so the list is of service objects
     
     def read_parts(self):
         """_summary_
@@ -296,9 +304,40 @@ class ServicePackage:
         self.ID = ID
         self.name = name
         self.list_of_services = list_of_services
-       
+        
+    def compute_cost(self, customer, parts):
+        services_cost = 0.0
+        parts_cost = 0.0
+        total_cost = 0.0
+        discount = 0
+        service_credit = 0
+        
+        # get the total for all the services in the package
+        for service in self.list_of_services:
+            services_cost += service.compute_service_cost()
+            
+        # get the total for all the parts in the respective packages   
+        for part in parts:
+            if part:
+                parts_cost += part.price
+                
+        original_cost = services_cost  + parts_cost
+        
+        cost_after_discount = services_cost * 0.75  # calcuate the discount from the service total
+
+        if isinstance(customer, Member): # check to see if the customer is a Member
+            discount = customer.get_discount(cost_after_discount) # get the member discount
+            
+        total_cost = cost_after_discount - discount + parts_cost
+            
+        if isinstance(customer, PremiumMember):
+            service_credit = customer.get_credit(total_cost) # we get the credit which will return the credit they've earned for this transaction
+            customer.update_credit(service_credit) # update their total credits
+        
+        return original_cost, discount, total_cost, service_credit
+        
     def display_info(self):    
-        print(f'ID: {self.ID}, name: {self.name}, {self.list_of_services}')     
+        print(f'ID: {self.ID}, name: {self.name}, {", ".join(self.list_of_services.names)}')     
     
 # functions takes in records and creates a new ID that is unquie for new customers
 def set_newID(records):
@@ -316,12 +355,8 @@ def set_newID(records):
 def perform_service(records):
     new_member = False
    
-    customer_name = input("Hello there! Please enter the name of the customer:\n").lower()
-    # validate customer name
-    while not customer_name.isalpha() :
-        print("Error detected, name entered contains non-alphabetic characters")  
-        customer_name = input("Please enter customer name with only alphabetic characters\n")
-     
+    customer_name = check_name()
+
     # check if they are an existing customer    
     customer = records.find_customer(customer_name)
     # if they don't exist in the customer list we create a customer object
@@ -330,41 +365,33 @@ def perform_service(records):
         ID = set_newID(records)
         customer = Customer(ID, customer_name)
     
-    service_requested = input("Please enter the service requested by the customer:\n")
-    service = records.find_service(service_requested)
-    while not service: # uses the find service method to check that it is a valid service entered
-        print("Error detected, invalid service entered")  
-        service_requested = input("Please enter a valid service\n")
+    service = check_service(records) # check if the service entered is correct
     
-    if service.require_user_input_hour == "yes": # does the user have to entered the service hours
-        num_hours = input("please enter number of service hours required:\n") # get user service hours if the user has to input them
-        is_float = False
-        # perfomring input validation for the service hour entered
-        while not is_float:
-            try:
-                num_hours = float(num_hours)
-                if (num_hours % 0.5) != 0 or float(num_hours) < 1:
-                    print("Error detected, invalid service hours")  
-                    num_hours = input("Please enter valid service hours\n")
-                else:
-                    is_float = True 
-            except ValueError:
-                print("Error, numerical value required here")
-                num_hours = input("Please enter valid service hours\n")
-        service.set_service_hour(num_hours) # setting the entered and valid user hour
+    # providing checks and getting user inputs for the service packages where it is required
+    if isinstance(service, ServicePackage): # check if the service is a service package
+        required_parts = []
+        for service_obj in service.list_of_services:
+            if service_obj.require_user_input_hour == "yes": # does the user have to enter the service hours
+                num_hours = check_user_service_hr()
+                service_obj.set_service_hour(num_hours)
+            part = None
+            if service_obj.require_part == "yes": # if user has to specify the required service part
+                part = check_valid_part(records)
+                required_parts.append(part)
+                
+        original_cost, discount, total_cost, service_credit = service.compute_cost(customer, required_parts)        
+    else:        
+        if service.require_user_input_hour == "yes": # does the user have to enter the service hours
+            num_hours = check_user_service_hr()
+            service.set_service_hour(num_hours) # setting the entered and valid user hour
+
+        part = None
+        if service.require_part == "yes": # if user has to specify the required service part
+            part = check_valid_part(records)
     
-    part = None
-    if service.require_part == "yes": # if user has to specify the required service part
-        part_required = input("Please enter the part required for this service:\n")
-        part = records.find_part(part_required)
-        while not part: # validating entered part
-            print("Error detected, invalid part entered")  
-            part_required = input("Please enter a valid part for your service\n")
-        part = records.find_part(part_required) # set valid part
-    
-    #Instantiate the servicejob class and create a servicejob object which is the cost of the service
-    service_job = ServiceJob(customer, service, part) 
-    original_cost, discount, total_cost, service_credit = service_job.compute_cost()
+        #Instantiate the servicejob class and create a servicejob object which is the cost of the service
+        service_job = ServiceJob(customer, service, part) 
+        original_cost, discount, total_cost, service_credit = service_job.compute_cost()
     
     # new member registration
     if new_member:
@@ -399,11 +426,13 @@ def perform_service(records):
     if isinstance(customer, PremiumMember):
         # call print method that has credit and registration cost
         print_receipt_P(service.name, service.service_hour, part_name, part_cost, original_cost, discount, total_cost, service_credit, new_member)
-
+    elif isinstance(service, ServicePackage):
+        print_receipt_SV(service, required_parts, original_cost, discount, total_cost, service_credit, new_member)
     else:
         # call regular print method
         print_receipt(service.name, service.service_hour, part_name, part_cost, original_cost, discount, total_cost)
   
+# This method prints receipts for the premium members
 def print_receipt_P(service_name, service_hr, part_name, part_cost, original_cost, discount, total_cost, service_credit, new_member):
     """_summary_
 Args:
@@ -447,8 +476,148 @@ Args:
     print("Original cost:"+"\t"*5 + f"{original_cost:.2f}" +" (AUD)") 
     print("Discount:"+"\t"*5 + f"{discount:.2f}" + " (AUD)")
     print("Total cost:"+"\t"*5 + f"{total_cost:.2f}" + " (AUD)\n")  
+
+# This method prints the receipt for the service packages
+def print_receipt_SV(service_package, required_parts, original_cost, discount, total_cost, service_credit, new_member):
+    """_summary_
+Args:
+    service_name (_type_): _description_ Name of the service the customer requested
+    service_hr (_type_): _description_ Service hours entered by the customer
+    part_name (_type_): _description_ Name of the part required by the customer
+    part_cost (_type_): _description_ The price of the part
+    total (_type_): _description_ The total for the customer's order
+    discount (_type_): _description_ The discount amount applied to the customers order
+"""
+    print("-"*60 + "\n" + "\t"*3 +"Receipt")
+    print("-"*60)
+    print(service_package.name)
+    for service in service_package.list_of_services:
+        for part in required_parts:
+            print(service.name + ":" + "\t"*5 + f"{service.service_hour}" + " x 40/hour")
+            if part:
+                print(part.name + ":" +"\t"*6 + f"{part.price:.2f}")
+    print("-"*60)
+    print("Original cost:"+"\t"*5 + f"{original_cost:.2f}" +" (AUD)") 
+    print("Discount:"+"\t"*5 + f"{discount:.2f}" + " (AUD)")
+    if new_member:
+        print("Registration cost:"+"\t"*4 + f"{50:.2f}" + " (AUD)")
+        total_cost += 50 # add the registration cost to the total
+    print("Total cost:"+"\t"*5 + f"{total_cost:.2f}" + " (AUD)")  
+    if service_credit:
+        print("Credit:"+"\t"*6 + f"{service_credit:.2f}" + " (AUD)\n")  
     
-  
+class MainErrorClass(Exception):
+    pass    
+
+class CustomerNameError(MainErrorClass):
+    pass
+
+# validate customer name
+def check_name():
+    # continues looping until the name is valid
+    while True:
+        try:
+            customer_name = input("Hello there! Please enter the name of the customer:\n").lower()
+            if not customer_name.isalpha():
+                raise CustomerNameError("Error detected, name entered contains non-alphabetic characters")
+            return customer_name # returns a valid customer name 
+        except CustomerNameError as error:
+            print(error)
+        customer_name = input("Please enter customer name with only alphabetic characters\n")
+    
+class ServiceNameError(MainErrorClass):
+    pass
+
+# validate entered service
+def check_service(records):
+    while True:
+        try:
+            service_requested = input("Please enter the service requested by the customer:\n")
+            service = records.find_service(service_requested)
+            if not service:
+                raise ServiceNameError("Error detected, invalid service entered")
+            return service
+        except ServiceNameError as error:
+            print(error)
+            
+class UserServiceHourError(MainErrorClass):  
+    pass
+
+# validate user entered service hours
+def check_user_service_hr():
+    while True:
+        try:
+            num_hours = input("Please enter number of service hours required:\n") # get user service hours if the user has to input them
+            num_hours = float(num_hours)
+            if (num_hours % 0.5) != 0 or num_hours < 1:
+                raise UserServiceHourError("Error detected, invalid service hours")  
+            return num_hours 
+        except UserServiceHourError as error:
+                print(error)
+        except ValueError:
+                print("Error, numerical value required here")
+      
+class PartNameError(MainErrorClass):
+    pass
+
+# validate the entered part    
+def check_valid_part(records): 
+    while True:
+        try:
+            part_required = input("Please enter the part required for this service:\n")
+            part = records.find_part(part_required)
+            if not part: 
+                raise PartNameError("Error detected, invalid part entered")  
+            return part
+        except PartNameError as error:
+            print(error)  
+              
+def update_services(services):
+    """_summary_ This method updates the services specifications
+
+    Args: 
+        services (_type_): _description_ The dictionary of the services provided
+        and their specifications
+    """
+    service_change = input("\nPlease enter the service and the service update you wish to make\n")
+    service_change = service_change.split(',')
+    service_name = service_change[0].strip() 
+    service_hour = service_change[1].strip()
+    if service_name in services:
+        if service_hour == "na":
+            services[service_name]["req_input_hours"] = "yes"
+        else: 
+             services[service_name]["service_hours"] = float(service_hour)    
+    
+def update_parts(part_prices):
+    """_summary_ This method updates the parts and adds their
+    respective specifications
+
+    Args:
+        part_prices (_type_): _description_ The dictionary for the parts and 
+        their respective prices
+    """
+    update_choice = input("Do you want to add or remove a part? 'a' to add and 'r' to remove\n")
+    if update_choice == "a":
+        new_part = input("Enter the part and its price in the format: part1, price1 etc\n")
+        part_and_price = new_part.split(",") 
+        for x in range(0, len(part_and_price), 2):
+            part_and_price[x] = part_and_price[x].strip()
+            # if the value is in the part dictionary already then only edit the price otherwise add new element to the dictionary
+            if part_and_price[x] in part_prices.keys(): # if it is a key of the dictionary then its a part
+                part_prices[part_and_price[x]] = float(part_and_price[x+1]) # change only the price 
+            else:
+                # I am assumming the user will always input a part and its price
+               part_prices.update({part_and_price[x]: float(part_and_price[x+1])}) 
+    elif update_choice == "r":
+        remove_part = input("Enter part/parts to remove\n")
+        parts_and_prices = remove_part.split(",") 
+        for parts in parts_and_prices:
+            parts = parts.strip()
+            if parts in part_prices:
+                del part_prices[parts]
+    else:
+        print("enter 'a' to update and 'r' to remove")    
     
 class Main:
     
@@ -501,12 +670,19 @@ class Main:
                 records.list_parts()
             elif user_choice == "4":
                 perform_service(records)
+            elif user_choice == "5":
+                update_services()
+            elif user_choice == "6":
+                update_parts()
+            #elif user_choice == "7":
+                #display_service_jobs()
                 
-            if user_choice == "5":
+            if user_choice == "8":
                 break
-        
-                
+                     
         
 if __name__ == "__main__":
     program = Main()
     program.run()
+    
+# Citations
