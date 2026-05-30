@@ -3,6 +3,7 @@
 
 import os
 import sys
+import datetime
 
 class Customer:
     """_summary_ This class defines the structure of a basic customer object
@@ -138,10 +139,12 @@ class Records:
         self.existing_customers = []
         self.existing_services = []
         self.existing_parts = []
+        self.service_jobs = []
                 
         self.read_customers()  
         self.read_services()   
         self.read_parts() 
+        self.read_service_jobs()
     
     def read_customers(self):
         """_summary_
@@ -202,7 +205,6 @@ class Records:
             if isinstance(service, ServicePackage):
                 service_objects = [] # the list of the services in the service package as objects
                 for service_name in service.list_of_services:
-                    print(f'"looking for: " {service_name}')# remove me
                     service_obj = self.find_service(service_name)
                     service_objects.append(service_obj)
                 service.list_of_services = service_objects # so the list is of service objects
@@ -222,6 +224,28 @@ class Records:
             part = Part(ID, name, price)
             self.existing_parts.append(part)
             
+    def read_service_jobs(self):
+        try:
+            file = open("service_jobs.txt")    
+            for line in file:
+                if line.isspace():
+                    continue # ignore the blank/empty lines if any
+                self.service_jobs.append(line.strip())  
+                job_variables = line.split(',')
+                customer_name = job_variables[0].strip()
+                service = job_variables[1].strip()
+
+                customer = self.find_customer(customer_name)
+                service = self.find_service(service)
+                
+                current_credits = job_variables[-2].strip() # only the credits for that current the service job
+
+                if isinstance(customer, PremiumMember) and current_credits != "na":
+                    customer.update_credit(int(current_credits))
+        
+        except FileNotFoundError:
+            print("Serivce job file not found")            
+                
     def _find(self, search_key, attribute_list):
         key_type = "name" if search_key.isalpha() else "ID"
         for  attribute in attribute_list:
@@ -264,6 +288,11 @@ class Records:
         # Go through the existing parts list and print the information
         for part in self.existing_parts:
             part.display_info()
+            
+    def list_service_jobs(self):
+        # method prints the service jobs
+        for jobs in self.service_jobs:
+            print(jobs)        
     
 class ServiceJob:
     # method is the constructor of the class servicejob
@@ -279,6 +308,12 @@ class ServiceJob:
         total_cost = 0.0
         service_credit = 0
         part_cost = 0.0
+        
+        # Making the cost of inspection 0 since its free for premium members
+        if isinstance(self.customer, PremiumMember) and self.customer.service_credit >= 5 and self.service.name.lower() == "inspection":
+            self.customer.update_credit(-5)
+            return 0.0, 0.0, 0.0, 0 # for an inspection now everything is free 
+               
         service_cost = self.service.compute_service_cost()
         
         # check if there's a part added to the service
@@ -315,7 +350,11 @@ class ServicePackage:
         
         # get the total for all the services in the package
         for service in self.list_of_services:
-            services_cost += service.compute_service_cost()
+            # check if inspection is in the package and if the premium user has enough credits
+            if isinstance(customer, PremiumMember) and customer.service_credit >= 5 and service.name.lower() == "inspection":
+                customer.update_credit(-5)
+            else:
+                services_cost += service.compute_service_cost()
             
         # get the total for all the parts in the respective packages   
         for part in parts:
@@ -392,6 +431,13 @@ def perform_service(records):
         if service.require_part == "yes": # if user has to specify the required service part
             part = check_valid_part(records)
     
+    if isinstance(service, ServicePackage):
+        original_cost, discount, total_cost, service_credit = service.compute_cost(customer, required_parts)           
+    else:
+        #Instantiate the servicejob class and create a servicejob object which is the cost of the service
+        service_job = ServiceJob(customer, service, part) 
+        original_cost, discount, total_cost, service_credit = service_job.compute_cost()    
+    
     # new member registration
     if new_member:
         current_id = customer.get_ID()
@@ -415,13 +461,6 @@ def perform_service(records):
                 file.write(f'\n{customer.get_ID()}, {customer_name}, na, na')
         file.close()   
         
-    if isinstance(service, ServicePackage):
-        original_cost, discount, total_cost, service_credit = service.compute_cost(customer, required_parts)           
-    else:
-    #Instantiate the servicejob class and create a servicejob object which is the cost of the service
-        service_job = ServiceJob(customer, service, part) 
-        original_cost, discount, total_cost, service_credit = service_job.compute_cost()    
-
     part_cost = 0.0
     part_name = None
     if part:
@@ -438,7 +477,15 @@ def perform_service(records):
     else:
         # call regular print method
         print_receipt(service.name, service.service_hour, part_name, part_cost, original_cost, discount, total_cost)
-  
+      
+    # record the performed service job    
+    if isinstance(service, ServicePackage):
+        update_service_jobs_file(customer, service, required_parts, original_cost, discount, total_cost, service_credit, records)
+    else:
+        update_service_jobs_file(customer, service, part, original_cost, discount, total_cost, service_credit, records)    
+        
+    update_customers_file(records)
+        
 # This method prints receipts for the premium members
 def print_receipt_P(service_name, service_hr, part_name, part_cost, original_cost, discount, total_cost, service_credit, new_member):
     """_summary_
@@ -511,7 +558,7 @@ Args:
         print("Registration cost:"+"\t"*4 + f"{50:.2f}" + " (AUD)")
         total_cost += 50 # add the registration cost to the total
     print("Total cost:"+"\t"*5 + f"{total_cost:.2f}" + " (AUD)")  
-    if service_credit:
+    if service_credit is not None:
         print("Credit:"+"\t"*6 + f"{service_credit:.2f}" + " (AUD)\n")  
     
 class MainErrorClass(Exception):
@@ -540,7 +587,7 @@ class ServiceNameError(MainErrorClass):
 def check_service(records):
     while True:
         try:
-            service_requested = input("Please enter the service requested by the customer:\n")
+            service_requested = input("Please enter the service requested by the customer:\n").strip()
             service = records.find_service(service_requested)
             if not service:
                 raise ServiceNameError("Error detected, invalid service entered")
@@ -572,7 +619,7 @@ class PartNameError(MainErrorClass):
 def check_valid_part(records): 
     while True:
         try:
-            part_required = input("Please enter the part required for this service:\n")
+            part_required = input("Please enter the part required for this service:\n").strip()
             part = records.find_part(part_required)
             if not part: 
                 raise PartNameError("Error detected, invalid part entered")  
@@ -580,7 +627,7 @@ def check_valid_part(records):
         except PartNameError as error:
             print(error)  
               
-def update_services(services):
+def update_services(records):
     """_summary_ This method updates the services specifications
 
     Args: 
@@ -591,13 +638,18 @@ def update_services(services):
     service_change = service_change.split(',')
     service_name = service_change[0].strip() 
     service_hour = service_change[1].strip()
-    if service_name in services:
-        if service_hour == "na":
-            services[service_name]["req_input_hours"] = "yes"
+    service = records.find_service(service_name)
+    if service:
+        if service_hour.lower() == "na":
+            service.require_user_input_hour = "yes"
+            service.service_hour = "na"
         else: 
-             services[service_name]["service_hours"] = float(service_hour)    
-    
-def update_parts(part_prices):
+            service.require_user_input_hour = "no"
+            service.set_service_hour(float(service_hour))
+    else:
+        print("service entered not found")
+                       
+def update_parts(records):
     """_summary_ This method updates the parts and adds their
     respective specifications
 
@@ -609,23 +661,87 @@ def update_parts(part_prices):
     if update_choice == "a":
         new_part = input("Enter the part and its price in the format: part1, price1 etc\n")
         part_and_price = new_part.split(",") 
-        for x in range(0, len(part_and_price), 2):
-            part_and_price[x] = part_and_price[x].strip()
-            # if the value is in the part dictionary already then only edit the price otherwise add new element to the dictionary
-            if part_and_price[x] in part_prices.keys(): # if it is a key of the dictionary then its a part
-                part_prices[part_and_price[x]] = float(part_and_price[x+1]) # change only the price 
+        part_name = part_and_price[0].strip()
+        part_price = float(part_and_price[1].strip())
+        existing_part = records.find_part(part_name)
+        if existing_part:
+            existing_part.price = part_price
+        else:
+            id_num = len(records.existing_parts) + 1
+            if id_num < 10:
+                part_id = "P0" + str(id_num)
             else:
-                # I am assumming the user will always input a part and its price
-               part_prices.update({part_and_price[x]: float(part_and_price[x+1])}) 
+                part_id = "P" + str(id_num)
+            records.existing_parts.append(Part(part_id, part_name, part_price))
     elif update_choice == "r":
-        remove_part = input("Enter part/parts to remove\n")
-        parts_and_prices = remove_part.split(",") 
-        for parts in parts_and_prices:
-            parts = parts.strip()
-            if parts in part_prices:
-                del part_prices[parts]
+        remove_part = input("Enter part/parts to remove\n").strip()
+        part = records.find_part(remove_part)
+        if part:
+            records.existing_parts.remove(part)
+        else:
+            print('part not found')
     else:
         print("enter 'a' to update and 'r' to remove")    
+        
+# update files methods
+def update_services_file(records):
+# writing updated services file
+    with open("services.txt", "w") as file:
+        for service in records.existing_services:
+            if isinstance(service, ServicePackage):
+                service_names = ", ".join([services.name for services in service.list_of_services])
+                file.write(f'{service.ID}, {service.name}, {service_names}\n')
+            else:
+                file.write(f'{service.ID}, {service.name}, {service.cost_per_hour}, {service.require_user_input_hour}, {service.service_hour}, {service.require_part}\n')
+                            
+def update_parts_file(records):
+# writing updated parts file
+    with open("parts.txt", "w") as file:
+        for part in records.existing_parts:
+            file.write(f'{part.ID}, {part.name}, {part.price}\n')
+        file.close()     
+        
+def update_customers_file(records):
+    # this method is to change the customer file at the end of tranactions 
+    with open("customers.txt", "w") as file:
+        for customer in records.existing_customers:
+            if isinstance(customer, PremiumMember):
+                file.write(f'{customer.get_ID()}, {customer.name}, {customer.get_discount_rate()}, {customer.service_credit}\n')
+            elif isinstance(customer, Member):
+                file.write(f'{customer.get_ID()}, {customer.name}, {customer.get_discount_rate()}, na\n')
+            else:
+                file.write(f'{customer.get_ID()}, {customer.name}, na, na\n')           
+        file.close()
+    
+# this method takes in the attributes required to record a service job    
+def update_service_jobs_file(customer, service, parts, original_cost, discount, total_cost, service_credit, records):
+    time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    if isinstance(customer, PremiumMember):
+        credits = service_credit
+    else:
+        credits = "na"
+        
+    if isinstance(service, ServicePackage):
+        service_job = f'{customer.name}, {service.name}'
+        for x in range(len(service.list_of_services)):
+            individual_service = service.list_of_services[x]
+            if parts[x]:
+                part_name = parts[x].name
+            else: 
+                part_name = "na"    
+            service_job += f', {individual_service.name}, {individual_service.service_hour}, {part_name}'
+    else:
+        if parts:
+            part_name = parts.name
+        else: 
+            part_name = "na"  
+        service_job = f'{customer.name}, {service.name}, {service.service_hour}, {part_name}'
+    
+    service_job += f', {original_cost}, {discount:.2f}, {total_cost}, {credits}, {time}'
+    records.service_jobs.append(service_job)
+    
+    with open("service_jobs.txt", "a") as file:
+        file.write('\n' + service_job)
     
 class Main:
     
@@ -659,7 +775,10 @@ class Main:
             2. Display existing services
             3. Display existing parts
             4. Perform a service
-            5. Exit the program
+            5. Update services
+            6. Update parts
+            7. Display service jobs
+            8. Exit the program
             """
             
             print("\nWelcome to the repair store") 
@@ -679,13 +798,18 @@ class Main:
             elif user_choice == "4":
                 perform_service(records)
             elif user_choice == "5":
-                update_services()
+                update_services(records)
             elif user_choice == "6":
-                update_parts()
-            #elif user_choice == "7":
-                #display_service_jobs()
+                update_parts(records)
+            elif user_choice == "7":
+                records.list_service_jobs()
                 
             if user_choice == "8":
+                # updating the four files on program termination
+                update_parts_file(records)
+                update_customers_file(records)
+                update_service_jobs_file(records)
+                update_services_file(records)
                 break
                      
         
